@@ -41,4 +41,18 @@ export class UserService {
 
 		return user;
 	}
+
+	/**
+	 * Retrieve single user data with phone number
+	 * @param {string} phone - User phone number
+	 */
+	async getUserByPhone(phone: string) {
+		const user = await this.userRepository.findOneBy({ phone });
+
+		if (!user) {
+			throw new NotFoundException("The user was not found");
+		}
+
+		return user;
+	}
 }

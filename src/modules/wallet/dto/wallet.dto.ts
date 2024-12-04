@@ -15,3 +15,14 @@ export class DepositDro {
 	@IsNotEmpty()
 	amount: number;
 }
+
+
+export class WithdrawalDto {
+	@IsString()
+	@IsNotEmpty()
+	phone: string;
+
+	@IsNumber()
+	@IsNotEmpty()
+	amount: number;
+}

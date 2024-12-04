@@ -1,9 +1,13 @@
-import { Injectable, InternalServerErrorException } from "@nestjs/common";
+import {
+	BadRequestException,
+	Injectable,
+	InternalServerErrorException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { WalletEntity } from "./entity/wallet.entity";
 import { DataSource, Repository } from "typeorm";
 import { UserService } from "../user/user.service";
-import { DepositDro } from "./dto/wallet.dto";
+import { DepositDro, WithdrawalDto } from "./dto/wallet.dto";
 import { UserEntity } from "../user/entity/user.entity";
 import { WalletTypes } from "./enums/wallet.enum";
 
@@ -87,5 +91,56 @@ export class WalletService {
 		}
 
 		return { message: "Deposit process ended successfully" };
+	}
+
+	async withdrawal(withdrawalDto: WithdrawalDto) {
+		const queryRunner = this.dataSource.createQueryRunner(); // Create an isolate database query runner
+		await queryRunner.connect(); // Connect the query runner to database
+		await queryRunner.startTransaction(); // Start a transaction
+
+		try {
+			const { amount, phone } = withdrawalDto;
+
+			/** Create or retrieve user'd data */
+			const user = await this.userService.getUserByPhone(phone);
+
+			/** Use the query runner  to retrieve user's data in the isolated environment */
+			const userDate = await queryRunner.manager.findOneBy(UserEntity, {
+				id: user.id,
+			});
+
+			if (amount > +userDate.balance) {
+				throw new BadRequestException("Insufficient assets");
+			}
+
+			/** Calculate user's new balance amount */
+			const newBalance = +userDate.balance - amount;
+			/** update user data */
+			await queryRunner.manager.update(
+				UserEntity,
+				{ id: userDate.id },
+				{ balance: newBalance }
+			);
+
+			/** Save payment data */
+			await queryRunner.manager.insert(WalletEntity, {
+				type: WalletTypes.WITHDRAWAL,
+				invoice_number: Date.now().toString(),
+				amount,
+				userId: userDate.id,
+			});
+
+			/** Commit the transaction */
+			await queryRunner.commitTransaction();
+		} catch (err) {
+			/** Start transaction rollback process */
+			await queryRunner.rollbackTransaction();
+			console.log(err);
+			throw new InternalServerErrorException(err.message);
+		} finally {
+			await queryRunner.release();
+		}
+
+		return { message: "Withdrawal process ended successfully" };
 	}
 }
