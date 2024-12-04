@@ -16,6 +16,8 @@ export class WalletEntity {
 	type: string;
 	@Column()
 	invoice_number: string;
+	@Column({ type: "numeric" })
+	amount: number;
 	@Column({ nullable: true })
 	userId: number;
 	@ManyToOne(() => UserEntity, (user) => user.transactions, {
